@@ -3,28 +3,6 @@
     https://raw.githubusercontent.com/rdagger/micropython-ili9341
 '''
 
-# pip install mpremote
-
-
-
-# connect to device
-# mpremote connect /dev/ttyUSB0 repl
-
-# create /lib on device
-# mpremote connect /dev/ttyUSB0 fs mkdir /lib
-
-
-# copy driver files to device
-# mpremote connect /dev/ttyUSB0 cp ili9341.py :/lib/ili9341.py
-# mpremote connect /dev/ttyUSB0 cp xpt2046.py :/lib/xpt2046.py
-
-# erash device
-# esptool.py --port /dev/ttyUSB0 erase_flash
-
-# flash new firmware
-# esptool.py --port /dev/ttyUSB0 --baud 460800 write_flash 0x1000 firmware/ESP32_GENERIC-20241129-v1.24.1.bin
-
-
 from ili9341 import Display, color565
 from xpt2046 import Touch
 from machine import idle, Pin, SPI
@@ -47,11 +25,6 @@ class Demo(object):
         self.touch = Touch(spi2, cs=Pin(33), int_pin=Pin(36),
                            int_handler=self.touchscreen_press)
         # Display initial message
-        # self.display.draw_text8x8(self.display.width // 2 - 32,
-        #                           self.display.height - 9,
-        #                           "stewlab",
-        #                           self.WHITE,
-        #                           background=self.PURPLE)
         self.display.draw_text8x8(self.display.width // 2 - 32,
                             self.display.height // 2 - 9,
                             "stewlab",
