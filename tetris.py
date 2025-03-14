@@ -31,6 +31,8 @@ class Tetris:
         self.board = [[0 for _ in range(self.BOARD_WIDTH)] for _ in range(self.BOARD_HEIGHT)]
         self.current_piece = self.new_piece()
         self.running = True
+        self.drop_speed = 500  # Milliseconds per drop
+        self.last_drop_time = time.ticks_ms()
 
     def new_piece(self):
         shape = random.choice(self.SHAPES)
@@ -66,16 +68,20 @@ class Tetris:
         self.board = [[0] * self.BOARD_WIDTH for _ in range(lines_cleared)] + new_board
 
     def update(self):
-        self.draw_piece(self.current_piece, clear=True)
-        if self.can_move(self.current_piece, 0, 1):
-            self.current_piece['y'] += 1
-        else:
-            self.merge_piece(self.current_piece)
-            self.clear_lines()
-            self.current_piece = self.new_piece()
-            if not self.can_move(self.current_piece, 0, 0):
-                self.running = False
+        current_time = time.ticks_ms()
+        if time.ticks_diff(current_time, self.last_drop_time) >= self.drop_speed:
+            self.draw_piece(self.current_piece, clear=True)
+            if self.can_move(self.current_piece, 0, 1):
+                self.current_piece['y'] += 1
+            else:
+                self.merge_piece(self.current_piece)
+                self.clear_lines()
+                self.current_piece = self.new_piece()
+                if not self.can_move(self.current_piece, 0, 0):
+                    self.running = False
+            self.last_drop_time = current_time
 
+        self.draw_board()
         self.draw_piece(self.current_piece)
 
     def touchscreen_press(self, x, y):
@@ -100,10 +106,7 @@ def test():
 
     try:
         while game.running:
-            start_time = time.ticks_ms()
             game.update()
-            elapsed = time.ticks_diff(time.ticks_ms(), start_time)
-            time.sleep(max(0.05 - elapsed / 1000, 0))
             idle()
 
     except KeyboardInterrupt:
