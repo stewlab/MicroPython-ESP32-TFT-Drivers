@@ -85,13 +85,24 @@ class Tetris:
         self.draw_piece(self.current_piece)
 
     def touchscreen_press(self, x, y):
+        old_x = self.current_piece['x']
+        new_x = old_x
+
         if x < self.display.width // 2:
             if self.can_move(self.current_piece, -1, 0):
-                self.current_piece['x'] -= 1
+                new_x -= 1
         else:
             if self.can_move(self.current_piece, 1, 0):
-                self.current_piece['x'] += 1
+                new_x += 1
 
+        if old_x != new_x:
+            for px, py in self.current_piece['shape']:
+                clear_x = (old_x + px) * self.BLOCK_SIZE
+                clear_y = (self.current_piece['y'] + py) * self.BLOCK_SIZE
+                self.display.fill_rectangle(clear_x, clear_y, self.BLOCK_SIZE, self.BLOCK_SIZE, self.COLORS[0])
+
+            self.current_piece['x'] = new_x
+            self.draw_piece(self.current_piece)
 
 def test():
     spi1 = SPI(1, baudrate=40000000, sck=Pin(14), mosi=Pin(13))
