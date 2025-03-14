@@ -5,9 +5,6 @@ import time
 import random
 
 class Tetris:
-    BOARD_WIDTH = 10
-    BOARD_HEIGHT = 20
-    BLOCK_SIZE = 10
 
     COLORS = [color565(0, 0, 0), color565(255, 0, 0), color565(0, 255, 0),
               color565(0, 0, 255), color565(255, 255, 0), color565(0, 255, 255), color565(255, 0, 255)]
@@ -27,6 +24,10 @@ class Tetris:
         self.touch = Touch(spi2, cs=Pin(33), int_pin=Pin(36),
                            int_handler=self.touchscreen_press)
 
+        self.BLOCK_SIZE = min(display.width // 10, display.height // 20)
+        self.BOARD_WIDTH = display.width // self.BLOCK_SIZE
+        self.BOARD_HEIGHT = display.height // self.BLOCK_SIZE
+
         self.board = [[0 for _ in range(self.BOARD_WIDTH)] for _ in range(self.BOARD_HEIGHT)]
         self.current_piece = self.new_piece()
         self.running = True
@@ -34,27 +35,24 @@ class Tetris:
     def new_piece(self):
         shape = random.choice(self.SHAPES)
         color = random.randint(1, len(self.COLORS) - 1)
-        return {'shape': shape, 'x': 4, 'y': 0, 'color': color}
+        return {'shape': shape, 'x': self.BOARD_WIDTH // 2 - 1, 'y': 0, 'color': color}
 
     def draw_board(self):
         for y in range(self.BOARD_HEIGHT):
             for x in range(self.BOARD_WIDTH):
-                color = self.COLORS[self.board[y][x]]
-                self.display.fill_rectangle(x * self.BLOCK_SIZE, y * self.BLOCK_SIZE, self.BLOCK_SIZE, self.BLOCK_SIZE, color)
+                if self.board[y][x]:
+                    self.display.fill_rectangle(x * self.BLOCK_SIZE, y * self.BLOCK_SIZE, self.BLOCK_SIZE, self.BLOCK_SIZE, self.COLORS[self.board[y][x]])
 
     def draw_piece(self, piece, clear=False):
         color = self.COLORS[0] if clear else self.COLORS[piece['color']]
         for px, py in piece['shape']:
-            self.display.fill_rectangle((piece['x'] + px) * self.BLOCK_SIZE,
-                                        (piece['y'] + py) * self.BLOCK_SIZE,
-                                        self.BLOCK_SIZE, self.BLOCK_SIZE, color)
+            x, y = (piece['x'] + px) * self.BLOCK_SIZE, (piece['y'] + py) * self.BLOCK_SIZE
+            self.display.fill_rectangle(x, y, self.BLOCK_SIZE, self.BLOCK_SIZE, color)
 
     def can_move(self, piece, dx, dy):
         for px, py in piece['shape']:
             nx, ny = piece['x'] + px + dx, piece['y'] + py + dy
-            if nx < 0 or nx >= self.BOARD_WIDTH or ny >= self.BOARD_HEIGHT:
-                return False
-            if ny >= 0 and self.board[ny][nx]:
+            if nx < 0 or nx >= self.BOARD_WIDTH or ny >= self.BOARD_HEIGHT or (ny >= 0 and self.board[ny][nx]):
                 return False
         return True
 
@@ -63,9 +61,9 @@ class Tetris:
             self.board[piece['y'] + py][piece['x'] + px] = piece['color']
 
     def clear_lines(self):
-        self.board = [row for row in self.board if any(cell == 0 for cell in row)]
-        while len(self.board) < self.BOARD_HEIGHT:
-            self.board.insert(0, [0] * self.BOARD_WIDTH)
+        new_board = [row for row in self.board if any(cell == 0 for cell in row)]
+        lines_cleared = self.BOARD_HEIGHT - len(new_board)
+        self.board = [[0] * self.BOARD_WIDTH for _ in range(lines_cleared)] + new_board
 
     def update(self):
         self.draw_piece(self.current_piece, clear=True)
@@ -79,7 +77,6 @@ class Tetris:
                 self.running = False
 
         self.draw_piece(self.current_piece)
-        self.draw_board()
 
     def touchscreen_press(self, x, y):
         if x < self.display.width // 2:
@@ -103,8 +100,10 @@ def test():
 
     try:
         while game.running:
+            start_time = time.ticks_ms()
             game.update()
-            time.sleep(0.5)
+            elapsed = time.ticks_diff(time.ticks_ms(), start_time)
+            time.sleep(max(0.05 - elapsed / 1000, 0))
             idle()
 
     except KeyboardInterrupt:
