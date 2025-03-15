@@ -4,22 +4,6 @@ This project provides MicroPython drivers for TFT displays based on the ILI9341 
 
 The repository includes an official MicroPython firmware binary in the `firmware/` directory for convenience. This is not a custom build, but the official release to simplify the flashing process.
 
-## Project Structure
-
-```
-MicroPython-ESP32-TFT-Drivers/
-├── drivers/
-│   ├── ili9341.py
-│   └── xpt2046.py
-├── firmware/
-│   └── ESP32_GENERIC-20241129-v1.24.1.bin
-└── display_test.py
-```
-
-- **drivers/** – Contains the display and touch driver files.
-- **firmware/** – Contains the official MicroPython firmware binary provided for convenience.
-- **display_test.py** – A test script at the project root to verify display functionality.
-
 ## Compatibility
 
 This has been tested on the following devices:
