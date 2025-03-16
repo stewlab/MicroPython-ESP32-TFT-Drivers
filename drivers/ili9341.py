@@ -7,14 +7,14 @@ from micropython import const  # type: ignore
 
 
 def color565(r, g, b):
-    """Return RGB565 color value.
+    """Return a 16-bit color value with red and blue swapped (BGR565 format).
 
     Args:
         r (int): Red value.
         g (int): Green value.
         b (int): Blue value.
     """
-    return (r & 0xf8) << 8 | (g & 0xfc) << 3 | b >> 3
+    return ((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3)
 
 
 class Display(object):
@@ -22,9 +22,6 @@ class Display(object):
 
     Note:  All coordinates are zero based.
     """
-
-    WIDTH = const(320)
-    HEIGHT = const(240)
 
     # Command constants from ILI9341 datasheet
     NOP = const(0x00)  # No-op
@@ -96,7 +93,7 @@ class Display(object):
         (True, 270): 0xA0  # 1010 0000
     }
 
-    def __init__(self, spi, cs, dc, rst, width=WIDTH, height=HEIGHT, rotation=0,
+    def __init__(self, spi, cs, dc, rst, width=240, height=320, rotation=0,
                  mirror=False, bgr=True, gamma=True, x_offset=0, y_offset=0):
         """Initialize OLED.
 
@@ -352,7 +349,7 @@ class Display(object):
         line = color.to_bytes(2, 'big') * w
         self.block(x, y, x + w - 1, y, line)
 
-    def draw_image(self, path, x=0, y=0, w=WIDTH, h=HEIGHT):
+    def draw_image(self, path, x=0, y=0, w=320, h=240):
         """Draw image from flash.
 
         Args:

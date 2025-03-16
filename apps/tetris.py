@@ -4,6 +4,22 @@ from machine import idle, Pin, SPI
 import time
 import random
 
+DISPLAY_WIDTH = const(240)
+DISPLAY_HEIGHT = const(320)
+ROTATION = const(270)
+
+SPI1_BAUD_RATE = const(40000000)
+SPI1_SCK_PIN = const(14)
+SPI1_MOSI_PIN = const(13)
+DISPLAY_DC_PIN = const(2)
+DISPLAY_CS_PIN = const(15)
+DISPLAY_RST_PIN = const(0)
+BL_PIN = const(21)
+SPI2_BAUD_RATE = const(1000000)
+SPI2_SCK_PIN = const(25)
+SPI2_MOSI_PIN = const(32)
+SPI2_MISO_PIN = const(39)
+
 class Tetris:
 
     CYAN = color565(0, 255, 255)
@@ -23,7 +39,7 @@ class Tetris:
         [(1, 0), (2, 0), (0, 1), (1, 1)]   # S-shape
     ]
 
-    def __init__(self, display, spi2, portrait=True):
+    def __init__(self, display, spi2):
         self.display = display
         # Reserve 40 pixels at the bottom for controls:
         self.CONTROL_HEIGHT = 40
@@ -32,8 +48,6 @@ class Tetris:
         self.BLOCK_SIZE = min(display.width // 10, (display.height - self.CONTROL_HEIGHT) // 20)
         self.BOARD_WIDTH = display.width // self.BLOCK_SIZE
         self.BOARD_HEIGHT = (display.height - self.CONTROL_HEIGHT) // self.BLOCK_SIZE
-
-        self.portrait = portrait
 
         self.touch = Touch(spi2, cs=Pin(33), int_pin=Pin(36),
                            int_handler=self.touchscreen_press)
@@ -55,8 +69,8 @@ class Tetris:
 
     def transform_coordinates(self, x, y):
         # For board drawing only. Controls will be drawn using raw coordinates.
-        if self.portrait:
-            return y, self.display.width - x - self.BLOCK_SIZE
+        # if self.portrait:
+        #     return y, self.display.width - x - self.BLOCK_SIZE
         return x, y
 
     def draw_board(self):
@@ -191,12 +205,12 @@ class Tetris:
         self.display.draw_text8x8(tx, ty, text, color)
 
 def test():
-    spi1 = SPI(1, baudrate=40000000, sck=Pin(14), mosi=Pin(13))
-    display = Display(spi1, dc=Pin(2), cs=Pin(15), rst=Pin(0))
-    bl_pin = Pin(21, Pin.OUT)
+    spi = SPI(1, baudrate=SPI1_BAUD_RATE, sck=Pin(SPI1_SCK_PIN), mosi=Pin(SPI1_MOSI_PIN))
+    display = Display(spi, dc=Pin(DISPLAY_DC_PIN), cs=Pin(DISPLAY_CS_PIN), rst=Pin(DISPLAY_RST_PIN), width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, rotation=ROTATION)
+    bl_pin = Pin(BL_PIN, Pin.OUT)
     bl_pin.on()
-    spi2 = SPI(2, baudrate=1000000, sck=Pin(25), mosi=Pin(32), miso=Pin(39))
-    game = Tetris(display, spi2, portrait=False)
+    spi2 = SPI(2, baudrate=SPI2_BAUD_RATE, sck=Pin(SPI2_SCK_PIN), mosi=Pin(SPI2_MOSI_PIN), miso=Pin(SPI2_MISO_PIN))
+    game = Tetris(display, spi2)
 
     # Initial drawing of the board.
     game.draw_board()

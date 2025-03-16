@@ -6,9 +6,6 @@ from micropython import const  # type: ignore
 class Touch(object):
     """Serial interface for XPT2046 Touch Screen Controller."""
 
-    WIDTH = const(320)
-    HEIGHT = const(240)
-
     # Command constants from ILI9341 datasheet
     GET_X = const(0b11010000)  # X position
     GET_Y = const(0b10010000)  # Y position
@@ -20,7 +17,7 @@ class Touch(object):
     GET_AUX = const(0b11100000)  # Auxiliary input to ADC
 
     def __init__(self, spi, cs, int_pin=None, int_handler=None,
-                 width=WIDTH, height=HEIGHT,
+                 width=240, height=320,
                  x_min=100, x_max=1962, y_min=100, y_max=1900):
         """Initialize touch screen controller.
 

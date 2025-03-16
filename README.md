@@ -125,7 +125,13 @@ After uploading the drivers, test the display functionality by running the test 
 mpremote connect /dev/ttyUSB0 run display_test.py
 ```
 
-### 7. Erase Flash (Optional)
+### 7. Graphics
+
+The graphics coordinate system (usb port side is north):
+x: left -> right
+y: bottom -> top
+
+### 8. Erase Flash (Optional)
 
 To erase the flash memory on your device, run:
 

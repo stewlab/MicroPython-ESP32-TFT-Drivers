@@ -1,18 +1,40 @@
 import math
 import time
 from ili9341 import Display, color565
-from machine import Pin, SPI, idle
+from machine import Pin, SPI
+
+DISPLAY_WIDTH = const(240)
+DISPLAY_HEIGHT = const(320)
+ROTATION = const(90)
+
+SPI1_BAUD_RATE = const(40000000)
+SPI1_SCK_PIN = const(14)
+SPI1_MOSI_PIN = const(13)
+DISPLAY_DC_PIN = const(2)
+DISPLAY_CS_PIN = const(15)
+DISPLAY_RST_PIN = const(0)
+BL_PIN = const(21)
+SPI2_BAUD_RATE = const(1000000)
+SPI2_SCK_PIN = const(25)
+SPI2_MOSI_PIN = const(32)
+SPI2_MISO_PIN = const(39)
+
+LOOKUP_TABLE_SIZE = 360  # Number of entries in lookup table
+ANGLE_STEP = 2 * math.pi / LOOKUP_TABLE_SIZE  # Step per index
+
+# Precompute sine and cosine lookup tables
+SIN_LUT = [math.sin(i * ANGLE_STEP) for i in range(LOOKUP_TABLE_SIZE)]
+COS_LUT = [math.cos(i * ANGLE_STEP) for i in range(LOOKUP_TABLE_SIZE)]
 
 class CubeDemo:
-    def __init__(self, display, spi2, portrait=True):
+    def __init__(self, display):
         self.display = display
-        self.portrait = portrait
-        self.angle = 0
+        self.angle_index = 0
+        self.zoom = 1.5  # Default zoom level
         self.cube_size = min(display.width, display.height) // 4
         self.center_x = display.width // 2
         self.center_y = display.height // 2
 
-        # Define cube vertices
         self.vertices = [
             (-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1),
             (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1)
@@ -23,57 +45,41 @@ class CubeDemo:
             (0, 4), (1, 5), (2, 6), (3, 7)
         ]
 
-    def transform_coordinates(self, x, y):
-        # For portrait mode, swap coordinates and mirror X if needed.
-        if self.portrait:
-            return y, self.display.width - x
-        return x, y
+    def rotate_point(self, x, y, z):
+        index = self.angle_index % LOOKUP_TABLE_SIZE
+        cos_a = COS_LUT[index]
+        sin_a = SIN_LUT[index]
 
-    def rotate_point(self, x, y, z, angle):
-        # Rotate around the Y-axis only.
-        cos_a = math.cos(angle)
-        sin_a = math.sin(angle)
         x_new = x * cos_a - z * sin_a
         z_new = x * sin_a + z * cos_a
         return x_new, y, z_new
 
     def project(self, x, y, z):
-        distance = 4  # A constant to avoid division by zero and simulate perspective.
+        distance = 4 / self.zoom  # Adjust distance based on zoom
         scale = self.cube_size / (z + distance)
-        px = int(self.center_x + x * scale)
-        py = int(self.center_y + y * scale)
-        return self.transform_coordinates(px, py)
+        return int(self.center_x + x * scale), int(self.center_y + y * scale)
 
     def draw_cube(self):
-        # Precompute rotated and projected vertices.
-        projected = []
-        for x, y, z in self.vertices:
-            rx, ry, rz = self.rotate_point(x, y, z, self.angle)
-            projected.append(self.project(rx, ry, rz))
-        for start, end in self.edges:
-            x1, y1 = projected[start]
-            x2, y2 = projected[end]
-            self.display.draw_line(x1, y1, x2, y2, color565(255, 255, 255))
+        projected = [self.project(*self.rotate_point(x, y, z)) for x, y, z in self.vertices]
 
-    def clear_screen(self):
-        self.display.fill_rectangle(0, 0, self.display.width, self.display.height, color565(0, 0, 0))
+        for start, end in self.edges:
+            self.display.draw_line(*projected[start], *projected[end], color565(255, 255, 255))
 
     def run(self):
-        # Run continuously until interrupted.
         while True:
-            self.clear_screen()
+            self.display.fill_rectangle(0, 0, self.display.width, self.display.height, color565(0, 0, 0))
             self.draw_cube()
-            self.angle += 0.05
-            # A shorter sleep time for higher frame rate.
+            self.angle_index = (self.angle_index + 1) % LOOKUP_TABLE_SIZE  # Increment angle safely
             time.sleep(0.01)
 
 def test():
-    spi1 = SPI(1, baudrate=40000000, sck=Pin(14), mosi=Pin(13))
-    display = Display(spi1, dc=Pin(2), cs=Pin(15), rst=Pin(0))
-    bl_pin = Pin(21, Pin.OUT)
+    spi = SPI(1, baudrate=SPI1_BAUD_RATE, sck=Pin(SPI1_SCK_PIN), mosi=Pin(SPI1_MOSI_PIN))
+    display = Display(spi, dc=Pin(DISPLAY_DC_PIN), cs=Pin(DISPLAY_CS_PIN), rst=Pin(DISPLAY_RST_PIN), width=DISPLAY_WIDTH, height=DISPLAY_HEIGHT, rotation=ROTATION)
+    bl_pin = Pin(BL_PIN, Pin.OUT)
     bl_pin.on()
-    spi2 = SPI(2, baudrate=1000000, sck=Pin(25), mosi=Pin(32), miso=Pin(39))
-    cube_demo = CubeDemo(display, spi2, portrait=False)
+
+    cube_demo = CubeDemo(display)
+    
     try:
         cube_demo.run()
     except KeyboardInterrupt:
