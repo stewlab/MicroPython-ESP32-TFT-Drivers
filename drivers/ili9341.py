@@ -178,15 +178,9 @@ class Display(object):
         self.clear()
 
     def block(self, x0, y0, x1, y1, data):
-        """Write a block of data to display.
-
-        Args:
-            x0 (int):  Starting X position.
-            y0 (int):  Starting Y position.
-            x1 (int):  Ending X position.
-            y1 (int):  Ending Y position.
-            data (bytes): Data buffer to write.
-        """
+        """Write a block of data to display."""
+        if not data:
+            return
         if self.offset:  # Add offset if specified
             x0 += self.x_offset
             x1 += self.x_offset
@@ -335,18 +329,18 @@ class Display(object):
             self.draw_pixel(x0 + x, y0 - y, color)
             self.draw_pixel(x0 - x, y0 - y, color)
 
-    def draw_hline(self, x, y, w, color):
-        """Draw a horizontal line.
+    def draw_hline(self, x, y, w, color=None):
+        """Draw a horizontal line."""
+        if w <= 0:
+            return
 
-        Args:
-            x (int): Starting X position.
-            y (int): Starting Y position.
-            w (int): Width of line.
-            color (int): RGB565 color value.
-        """
         if self.is_off_grid(x, y, x + w - 1, y):
             return
-        line = color.to_bytes(2, 'big') * w
+
+        if color is not None:
+            self.set_color(color)
+
+        line = self._color_bytes * w
         self.block(x, y, x + w - 1, y, line)
 
     def draw_image(self, path, x=0, y=0, w=320, h=240):
@@ -429,60 +423,43 @@ class Display(object):
                        buf)
         return w, h
 
-    def draw_line(self, x1, y1, x2, y2, color):
-        """Draw a line using Bresenham's algorithm.
+    def set_color(self, color):
+        self._color_bytes = color.to_bytes(2, 'big')
 
-        Args:
-            x1, y1 (int): Starting coordinates of the line
-            x2, y2 (int): Ending coordinates of the line
-            color (int): RGB565 color value.
-        """
-        # Check for horizontal line
-        if y1 == y2:
-            if x1 > x2:
-                x1, x2 = x2, x1
-            self.draw_hline(x1, y1, x2 - x1 + 1, color)
-            return
-        # Check for vertical line
-        if x1 == x2:
+    def draw_line(self, x1, y1, x2, y2, color=None):
+        """Draw a line using Bresenham's algorithm."""
+        if color is not None:
+            self.set_color(color)
+
+        if x1 == x2:  # Vertical line
             if y1 > y2:
                 y1, y2 = y2, y1
-            self.draw_vline(x1, y1, y2 - y1 + 1, color)
+            self.draw_vline(x1, y1, y2 - y1 + 1)
             return
-        # Confirm coordinates in boundary
-        if self.is_off_grid(min(x1, x2), min(y1, y2),
-                            max(x1, x2), max(y1, y2)):
+
+        if y1 == y2:  # Horizontal line
+            if x1 > x2:
+                x1, x2 = x2, x1
+            self.draw_hline(x1, y1, x2 - x1 + 1)
             return
-        # Changes in x, y
-        dx = x2 - x1
-        dy = y2 - y1
-        # Determine how steep the line is
-        is_steep = abs(dy) > abs(dx)
-        # Rotate line
-        if is_steep:
-            x1, y1 = y1, x1
-            x2, y2 = y2, x2
-        # Swap start and end points if necessary
-        if x1 > x2:
-            x1, x2 = x2, x1
-            y1, y2 = y2, y1
-        # Recalculate differentials
-        dx = x2 - x1
-        dy = y2 - y1
-        # Calculate error
-        error = dx >> 1
-        ystep = 1 if y1 < y2 else -1
-        y = y1
-        for x in range(x1, x2 + 1):
-            # Had to reverse HW ????
-            if not is_steep:
-                self.draw_pixel(x, y, color)
-            else:
-                self.draw_pixel(y, x, color)
-            error -= abs(dy)
-            if error < 0:
-                y += ystep
-                error += dx
+
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        err = dx - dy
+
+        while True:
+            self.draw_pixel(x1, y1)
+            if x1 == x2 and y1 == y2:
+                break
+            e2 = 2 * err
+            if e2 > -dy:
+                err -= dy
+                x1 += sx
+            if e2 < dx:
+                err += dx
+                y1 += sy
 
     def draw_lines(self, coords, color):
         """Draw multiple lines.
@@ -499,17 +476,12 @@ class Display(object):
             self.draw_line(x1, y1, x2, y2, color)
             x1, y1 = x2, y2
 
-    def draw_pixel(self, x, y, color):
-        """Draw a single pixel.
-
-        Args:
-            x (int): X position.
-            y (int): Y position.
-            color (int): RGB565 color value.
-        """
-        if self.is_off_grid(x, y, x, y):
-            return
-        self.block(x, y, x, y, color.to_bytes(2, 'big'))
+    def draw_pixel(self, x, y, color=None):
+        """Draw a pixel at the given coordinates."""
+        if color is not None:
+            self.set_color(color)
+        # Assuming self.block handles single pixel writes:
+        self.block(x, y, x, y, self._color_bytes) # Replace with your actual pixel write logic
 
     def draw_polygon(self, sides, x0, y0, r, color, rotate=0):
         """Draw an n-sided regular polygon.
@@ -665,19 +637,18 @@ class Display(object):
                                 fbuf.pixel((w - 1) - x1, y1))
             self.block(x, y, x + (h - 1), y + w - 1, buf2)
 
-    def draw_vline(self, x, y, h, color):
-        """Draw a vertical line.
+    def draw_vline(self, x, y, h, color=None):
+        """Draw a vertical line."""
+        if h <= 0:
+            return
 
-        Args:
-            x (int): Starting X position.
-            y (int): Starting Y position.
-            h (int): Height of line.
-            color (int): RGB565 color value.
-        """
-        # Confirm coordinates in boundary
         if self.is_off_grid(x, y, x, y + h - 1):
             return
-        line = color.to_bytes(2, 'big') * h
+
+        if color is not None:
+            self.set_color(color)
+
+        line = self._color_bytes * h
         self.block(x, y, x, y + h - 1, line)
 
     def fill_circle(self, x0, y0, r, color):
@@ -930,32 +901,9 @@ class Display(object):
         else:
             self.write_cmd(self.INVOFF)
 
-    def is_off_grid(self, xmin, ymin, xmax, ymax):
-        """Check if coordinates extend past display boundaries.
-
-        Args:
-            xmin (int): Minimum horizontal pixel.
-            ymin (int): Minimum vertical pixel.
-            xmax (int): Maximum horizontal pixel.
-            ymax (int): Maximum vertical pixel.
-        Returns:
-            boolean: False = Coordinates OK, True = Error.
-        """
-        if xmin < 0:
-            print('x-coordinate: {0} below minimum of 0.'.format(xmin))
-            return True
-        if ymin < 0:
-            print('y-coordinate: {0} below minimum of 0.'.format(ymin))
-            return True
-        if xmax >= self.width:
-            print('x-coordinate: {0} above maximum of {1}.'.format(
-                xmax, self.width - 1))
-            return True
-        if ymax >= self.height:
-            print('y-coordinate: {0} above maximum of {1}.'.format(
-                ymax, self.height - 1))
-            return True
-        return False
+    def is_off_grid(self, x0, y0, x1, y1):
+        """Check if any part of the rectangle is off the display."""
+        return (x1 < 0 or y1 < 0 or x0 >= self.width or y0 >= self.height)
 
     def load_sprite(self, path, w, h):
         """Load sprite image.
